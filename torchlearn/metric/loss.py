@@ -1,6 +1,6 @@
 """TODO loss docstring
 """
-from typing import Any, Tuple, Union
+from typing import Any, Tuple, Optional
 
 from torch import Tensor
 
@@ -10,11 +10,8 @@ from .average_metric import AverageMetric
 class Loss(AverageMetric):
     """TODO Loss docstring"""
 
-    def __init__(
-        self, name: str = "loss", keys: Union[Tuple[str, str], Tuple[None, str]] = (None, "batch_size")
-    ) -> None:
-        if keys[0] is None:
-            keys = (name, *keys[1:])
+    def __init__(self, name: str = "loss", keys: Tuple[Optional[str], str] = (None, "batch_size")) -> None:
+        keys = (keys[0] if keys[0] is not None else name, keys[1])
         super().__init__(name, keys)
 
     @staticmethod
