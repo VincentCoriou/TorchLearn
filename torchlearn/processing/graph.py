@@ -1,7 +1,9 @@
 """TODO
 """
 
-from typing import Dict, Any, Union, Sequence, Callable, Mapping, Optional, Tuple
+from typing import Dict, Any, Union, Sequence, Callable, Mapping, Optional, Tuple, Protocol, TypeVar
+
+from torch import nn
 
 from torchlearn.utils.graph import Graph
 
@@ -90,7 +92,7 @@ class ProcessingGraph:
     nodes: Mapping[str, ProcessingNode]
 
     def __init__(
-        self, *, inputs: Sequence[str], functions: Sequence[_GraphFunction], constants: Optional[_Constants] = None
+            self, *, inputs: Sequence[str], functions: Sequence[_GraphFunction], constants: Optional[_Constants] = None
     ):
         inputs = tuple(inputs)
         processing_nodes = tuple(
@@ -148,3 +150,11 @@ class ProcessingGraph:
         if len(outputs) == 0:
             outputs = tuple(self.nodes)
         return {a: self.values[a] for a in outputs}
+
+
+T_contra = TypeVar("T_contra", bound=nn.Module, contravariant=True)
+
+
+class ProcessingFunction(Protocol[T_contra]):
+    def __call__(self, model: T_contra, *args: Any, **kwargs: Any) -> ProcessingGraph:
+        pass

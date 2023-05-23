@@ -1,6 +1,6 @@
-from functools import reduce
-from operator import or_
-from typing import Sequence, Type, Union, Optional, Any, Callable
+"""TODO
+"""
+from typing import Sequence, Type, Union, Optional, Any, Mapping, Dict, Sized
 
 import torch
 from torch import nn
@@ -8,13 +8,17 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 from tqdm.autonotebook import tqdm
 
-from torchlearn.processing.graph import ProcessingGraph
+from torchlearn.metric.metric_dict import MetricDict
+from torchlearn.metric.metric_value import MetricValue
+from torchlearn.processing.graph import ProcessingGraph, ProcessingFunction
 from torchlearn.training.callback import Callback
+from torchlearn.training.early_stopping import EarlyStopping
 from torchlearn.training.results import Result, EpochResult
 from torchlearn.training.schedulers import Scheduler
 
 
 class Trainer:
+    """TODO"""
     device: Optional[torch.device]
     model: nn.Module
     optimizer: Optimizer
@@ -29,20 +33,24 @@ class Trainer:
             optimizer = optimizer(model.parameters(), *args, **kwargs)
         self.optimizer = optimizer
 
-    def train(self, processing_function: Callable[[nn.Module, ...], ProcessingGraph], epochs: int,
+    def train(self, processing_function: ProcessingFunction, epochs: int,
               train_dataloader: DataLoader,
               val_dataloader: Optional[DataLoader] = None, schedulers: Sequence[Scheduler] = (),
               callbacks: Sequence[Callback] = (),
-              metrics=None,
-              val_metrics=None,
-              early_stopping=None,
-              trace=False,
-              progress=True,
-              show_metrics=True):
+              metrics: Optional[MetricDict | Mapping[str, MetricValue]] = None,
+              val_metrics: Optional[MetricDict | Mapping[str, MetricValue]] = None,
+              early_stopping: Optional[EarlyStopping] = None,
+              trace: bool = False,
+              progress: bool = True,
+              show_metrics: bool = True) -> Sequence[Result]:
         if metrics is None:
             metrics = {}
+        if not isinstance(metrics, MetricDict):
+            metrics = MetricDict(**metrics)
         if val_metrics is None:
             val_metrics = metrics
+        if not isinstance(val_metrics, MetricDict):
+            val_metrics = MetricDict(**val_metrics)
         processing_graph = processing_function(self.model)
         if "loss" not in processing_graph:
             raise ValueError("Missing required 'loss' key in processing graph.")
@@ -51,7 +59,7 @@ class Trainer:
         train_results = Result()
         valid_results = Result()
         results = (train_results,) if val_dataloader is None else (train_results, valid_results)
-        postfix = {}
+        postfix: Dict[str, float] = {}
         with tqdm(range(1, epochs + 1), leave=trace, desc="Epochs", postfix=postfix, disable=not progress) as pbar:
             try:
                 for epoch in pbar:
@@ -78,52 +86,51 @@ class Trainer:
                 pass
         return results
 
-    def training(self, processing_graph: ProcessingGraph, dataloader: DataLoader, metrics, progress: bool = True,
-                 show_metrics: bool = True):
+    def training(self, processing_graph: ProcessingGraph, dataloader: DataLoader, metrics: MetricDict,
+                 progress: bool = True,
+                 show_metrics: bool = True) -> EpochResult:
         optimizer = self.optimizer
         self.model.train()
         epoch_metrics = EpochResult(metrics)
-        states = reduce(or_, (set(m.states()) for m in metrics.values()), set())
-        for s in states:
-            s.reset()
-        arguments = reduce(or_, (set(m.arguments()) for m in metrics.values()), {"loss"})
+        states = metrics.states
+        metrics.reset()
+        parameters = metrics.parameters | {"loss", "batch_size"}
+        sized = len(dataloader.dataset) if isinstance(dataloader.dataset, Sized) else None
         with tqdm(dataloader, desc="Training", leave=False, disable=not progress,
-                  total=len(dataloader.dataset)) as pbar:
+                  total=sized) as pbar:
             for batch in pbar:
                 batch = tuple(t.to(self.device) for t in batch)
-                outputs = processing_graph(*arguments, inputs=batch)
+                outputs = processing_graph(*parameters, inputs=batch)
                 optimizer.zero_grad()
                 outputs["loss"].backward()
                 optimizer.step()
                 for s in states:
                     s(outputs)
-                pbar.update(outputs["batch_size"])
+                if sized:
+                    pbar.update(outputs["batch_size"])
                 if show_metrics:
-                    pbar.set_postfix(**epoch_metrics.values())
+                    pbar.set_postfix(epoch_metrics.values())
         return epoch_metrics
 
     @torch.no_grad()
-    def evaluate(self, criterions, dataloader, metrics, progress=True, show_metrics=True):
+    def evaluate(self, processing_graph: ProcessingGraph, dataloader: DataLoader, metrics: MetricDict,
+                 progress: bool = True, show_metrics: bool = True) -> EpochResult:
         model = self.model
         model.eval()
-        if not isinstance(criterions, Sequence):
-            criterions = (criterions,)
         epoch_metrics = EpochResult(metrics)
-        states = reduce(or_, (set(m.states()) for m in metrics.values()), set())
-        for s in states:
-            s.reset()
-        with tqdm(dataloader, desc="Evaluating", leave=False, disable=not progress) as pbar:
-            for inputs, targets in pbar:
-                inputs = inputs.to(self.device)
-                targets = targets.to(self.device)
-                batch_size = inputs.size(0)
-                outputs = model(inputs)
-                losses = torch.stack(tuple(criterion(outputs, targets) for criterion in criterions), 0)
-                loss = losses.sum()
-                args = {"loss": loss, "outputs": outputs[0], "targets": targets, "inputs": inputs, "losses": losses,
-                        "batch_size": batch_size}
+        states = metrics.states
+        metrics.reset()
+        parameters = metrics.parameters | {"batch_size"}
+        sized = len(dataloader.dataset) if isinstance(dataloader.dataset, Sized) else None
+        with tqdm(dataloader, desc="Evaluating", leave=False, disable=not progress,
+                  total=sized) as pbar:
+            for batch in pbar:
+                batch = tuple(t.to(self.device) for t in batch)
+                outputs = processing_graph(*parameters, inputs=batch)
                 for s in states:
-                    s(args)
+                    s(outputs)
+                if sized:
+                    pbar.update(outputs["batch_size"])
                 if show_metrics:
-                    pbar.set_postfix(**epoch_metrics.values())
+                    pbar.set_postfix(epoch_metrics.values())
         return epoch_metrics

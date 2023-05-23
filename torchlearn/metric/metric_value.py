@@ -3,7 +3,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Callable, Dict, Iterator, Optional
 
-from .metric_state import MetricState
+from .state import State
 
 
 def _compute_unimplemented(self: Any, *args: Any, **kwargs: Any) -> Any:
@@ -20,16 +20,14 @@ def _compute_unimplemented(self: Any, *args: Any, **kwargs: Any) -> Any:
 class MetricValue(ABC):
     """TODO MetricValue docstring"""
 
-    _name: str
-    _states: Dict[str, MetricState]
+    _states: Dict[str, State]
 
-    def __init__(self, name: str) -> None:
-        self._name = name
+    def __init__(self) -> None:
         self._states = {}
 
     def __setattr__(self, name: str, value: Optional[Any]) -> None:
         metric_objects = self.__dict__.get("_states")
-        if isinstance(value, MetricState):
+        if isinstance(value, State):
             if metric_objects is None:
                 raise AttributeError(f"Cannot assign metric objects before " f"{MetricValue.__name__}.__init__ call")
             self.add_state(name, value)
@@ -49,7 +47,7 @@ class MetricValue(ABC):
         else:
             object.__delattr__(self, name)
 
-    def add_state(self, name: str, metric_state: MetricState) -> None:
+    def add_state(self, name: str, metric_state: State) -> None:
         if "_states" not in self.__dict__:
             raise AttributeError(f"Cannot assign metric objects before " f"{MetricValue.__name__}.__init__ call")
         elif "." in name:
@@ -70,12 +68,8 @@ class MetricValue(ABC):
 
     compute: Callable[..., Any] = staticmethod(abstractmethod(_compute_unimplemented))
 
-    @property
-    def name(self) -> str:
-        return self._name
-
-    def states(self) -> Iterator[MetricState]:
-        if isinstance(self, MetricState):
+    def states(self) -> Iterator[State]:
+        if isinstance(self, State):
             yield self
         if "_states" not in self.__dict__:
             raise AttributeError(f"Cannot access metric objects before " f"{MetricValue.__name__}.__init__ call")

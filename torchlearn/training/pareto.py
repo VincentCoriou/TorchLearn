@@ -1,3 +1,5 @@
+"""TODO
+"""
 import os
 from pathlib import Path
 from typing import Sequence, Callable, Union
@@ -7,6 +9,8 @@ from torch import Tensor
 from torch import nn
 
 from torchlearn.objective.objective import Objective
+from torchlearn.objective.pareto import ParetoSet
+from torchlearn.training.results import Result
 
 PathLike = Union[str, os.PathLike[str]]
 
@@ -22,7 +26,7 @@ class ParetoManager:
 
         self.path.mkdir(parents=True, exist_ok=False)
 
-    def __call__(self, model: nn.Module, epoch: int, results: Sequence[Results]) -> None:
+    def __call__(self, model: nn.Module, epoch: int, results: Sequence[Result]) -> None:
         epoch_results = results[1] if self.validation and len(results) == 2 else results[0]
         solution = torch.tensor([epoch_results[epoch][o.name] for o in self.objectives])
         s_id, pareto_optimal, deleted = self.pareto_set.add(solution)

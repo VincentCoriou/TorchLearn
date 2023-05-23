@@ -7,18 +7,18 @@ from torch import Tensor
 
 _BetterFN = Callable[[Tensor, Tensor], Tensor]
 _SameFN = Callable[[Tensor, Tensor], Tensor]
-_ThresholdFN = Callable[[Tensor, Tensor, Tensor], Tensor]
+_ThresholdFN = Callable[[Tensor, Tensor, float], Tensor]
 
 
 def parse_objectives(objectives_configuration: Mapping[str, str]) -> Sequence["Objective"]:
     return tuple(Objective.from_config(name, config) for name, config in objectives_configuration.items())
 
 
-def _gt_threshold(x: Tensor, y: Tensor, t: Tensor) -> Tensor:
+def _gt_threshold(x: Tensor, y: Tensor, t: float) -> Tensor:
     return torch.gt(x - t, y)
 
 
-def _lt_threshold(x: Tensor, y: Tensor, t: Tensor) -> Tensor:
+def _lt_threshold(x: Tensor, y: Tensor, t: float) -> Tensor:
     return torch.lt(x + t, y)
 
 
