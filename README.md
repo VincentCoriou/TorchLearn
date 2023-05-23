@@ -1,4 +1,4 @@
-#TorchLearn
+# TorchLearn
 
 TorchLearn is a Python package that provides an additional layer on top of vanilla pytorch
 in order to simplify and fasten the development and deployment of Machine Learning Training
