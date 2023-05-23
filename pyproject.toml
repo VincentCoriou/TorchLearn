@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 
 [tool.black]
-line-length = 79
+line-length = 119
 include = '\.pyi?$'
 exclude = '''
 /(
@@ -25,7 +25,7 @@ exclude = '''
 
 [tool.isort]
 profile = "black"
-line_length = 79
+line_length = 119
 
 [tool.pytest.ini_options]
 minversion = "6.0"
@@ -79,7 +79,7 @@ fail-under = 10
 # from-stdin =
 
 # Files or directories to be skipped. They should be base names, not paths.
-ignore = ["third_party"]
+ignore = ["tests"]
 
 # Add files or directories matching the regex patterns to the ignore-list. The
 # regex matches against paths and can be in Posix or Windows format.
@@ -307,7 +307,7 @@ min-public-methods = 2
 
 [tool.pylint.exceptions]
 # Exceptions that will emit a warning when caught.
-overgeneral-exceptions = ["StandardError", "Exception", "BaseException"]
+overgeneral-exceptions = ["builtins.StandardError", "builtins.Exception", "builtins.BaseException"]
 
 [tool.pylint.format]
 # Expected format of line ending, e.g. empty (any line ending), LF or CRLF.
@@ -324,7 +324,7 @@ indent-after-paren = 4
 indent-string = "    "
 
 # Maximum number of characters on a single line.
-max-line-length = 80
+max-line-length = 120
 
 # Maximum number of lines in a module.
 max-module-lines = 99999
@@ -574,3 +574,4 @@ check_untyped_defs = true
 warn_return_any = true
 warn_unused_ignores = true
 show_error_codes = true
+exclude = "test_.*\\.py"
